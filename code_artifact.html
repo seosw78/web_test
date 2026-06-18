@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>물로켓 비행 가상 시뮬레이터</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* 슬라이더 스타일 커스텀 */
+    input[type="range"]::-webkit-slider-thumb {
+      background: #06b6d4;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      -webkit-appearance: none;
+    }
+    input[type="range"]::-moz-range-thumb {
+      background: #06b6d4;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    /* 폰트 설정 */
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-cyan-500 selection:text-slate-900">
+
+  <!-- 헤더 -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl shadow-lg shadow-cyan-500/20 text-white">
+          <i data-lucide="rocket" class="w-6 h-6 animate-pulse"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">물로켓 가상 실험실</h1>
+          <p class="text-xs text-slate-400">Water Rocket Interactive Physics Simulation Laboratory</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+          실시간 고정밀 유체역학 반영
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 레이아웃 -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    
+    <!-- 왼쪽 제어판 (4열) -->
+    <section class="lg:col-span-4 flex flex-col gap-6">
+      
+      <!-- 프리셋 선택기 -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+        <h3 class="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-4 h-4 text-cyan-400"></i>
+          실험 시나리오 프리셋
+        </h3>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button onclick="applyPreset('optimal')" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-cyan-400 transition text-left border border-slate-700/50">
+            <span class="font-bold block text-slate-200">🚀 최적 비행 조건</span>
+            <span class="text-[10px] text-slate-400">최대 사거리를 위한 세팅</span>
+          </button>
+          <button onclick="applyPreset('nowater')" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-cyan-400 transition text-left border border-slate-700/50">
+            <span class="font-bold block text-slate-200">💨 공기만 주입 (물 0%)</span>
+            <span class="text-[10px] text-slate-400">작용 질량이 없는 상태</span>
+          </button>
+          <button onclick="applyPreset('fullwater')" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-cyan-400 transition text-left border border-slate-700/50">
+            <span class="font-bold block text-slate-200">💧 물 과다 (물 95%)</span>
+            <span class="text-[10px] text-slate-400">압축 공기 부족 및 과적</span>
+          </button>
+          <button onclick="applyPreset('heavy')" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-cyan-400 transition text-left border border-slate-700/50">
+            <span class="font-bold block text-slate-200">⚖️ 무거운 로켓</span>
+            <span class="text-[10px] text-slate-400">건조 질량이 큰 탄두 장착</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 파라미터 조절기 -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col justify-between">
+        <div class="space-y-5">
+          <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2 pb-2 border-b border-slate-800">
+            <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>
+            변수 정밀 제어 (Variables)
+          </h3>
+
+          <!-- 발사 각도 -->
+          <div class="space-y-2">
+            <div class="flex justify-between items-center text-sm">
+              <label for="angle" class="text-slate-300 font-medium flex items-center gap-1.5">
+                <i data-lucide="compass" class="w-4 h-4 text-cyan-400"></i> 발사 각도 (Angle)
+              </label>
+              <span id="angleVal" class="text-cyan-400 font-bold font-mono">45°</span>
+            </div>
+            <input type="range" id="angle" min="15" max="85" value="45" step="1" 
+                   class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+            <div class="flex justify-between text-[10px] text-slate-500">
+              <span>15° (저각)</span>
+              <span>45° (이론적 최적)</span>
+              <span>85° (고각)</span>
+            </div>
+          </div>
+
+          <!-- 로켓 건조 질량 -->
+          <div class="space-y-2">
+            <div class="flex justify-between items-center text-sm">
+              <label for="dryMass" class="text-slate-300 font-medium flex items-center gap-1.5">
+                <i data-lucide="weight" class="w-4 h-4 text-cyan-400"></i> 본체 건조 질량 (Mass)
+              </label>
+              <span id="dryMassVal" class="text-cyan-400 font-bold font-mono">150 g</span>
+            </div>
+            <input type="range" id="dryMass" min="100" max="1000" value="150" step="10" 
+                   class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+            <div class="flex justify-between text-[10px] text-slate-500">
+              <span>100g (가벼움)</span>
+              <span>1000g (매우 무거움)</span>
+            </div>
+          </div>
+
+          <!-- 물 주입량 -->
+          <div class="space-y-2">
+            <div class="flex justify-between items-center text-sm">
+              <label for="waterVol" class="text-slate-300 font-medium flex items-center gap-1.5">
+                <i data-lucide="droplet" class="w-4 h-4 text-cyan-400"></i> 물 충전량 (Propellant)
+              </label>
+              <span id="waterVolVal" class="text-cyan-400 font-bold font-mono">450 mL</span>
+            </div>
+            <input type="range" id="waterVol" min="0" max="1200" value="450" step="10" 
+                   class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+            <div class="flex justify-between text-[10px] text-slate-500">
+              <span>0mL (공기 비행)</span>
+              <span>1200mL (용량 한계치)</span>
+            </div>
+            <!-- 내부 기수 영역 비율 인디케이터 -->
+            <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden flex">
+              <div id="waterRatioIndicator" class="bg-blue-500 h-full transition-all duration-150" style="width: 30%"></div>
+              <div id="airRatioIndicator" class="bg-cyan-500/30 h-full flex-1"></div>
+            </div>
+            <div class="text-[10px] text-slate-400 text-right" id="volumeRatioText">전체 1.5L 페트병 중 물 30.0% 충전</div>
+          </div>
+
+          <!-- 공기 압축 압력 -->
+          <div class="space-y-2">
+            <div class="flex justify-between items-center text-sm">
+              <label for="pressure" class="text-slate-300 font-medium flex items-center gap-1.5">
+                <i data-lucide="gauge" class="w-4 h-4 text-cyan-400"></i> 주입 기압 (Pressure)
+              </label>
+              <span id="pressureVal" class="text-cyan-400 font-bold font-mono">4.5 atm</span>
+            </div>
+            <input type="range" id="pressure" min="1.5" max="7.0" value="4.5" step="0.1" 
+                   class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+            <div class="flex justify-between text-[10px] text-slate-500">
+              <span>1.5 atm (펌프질 소량)</span>
+              <span>7.0 atm (폭발 임계점 부근)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 제어 버튼군 -->
+        <div class="mt-6 pt-4 border-t border-slate-800/80 space-y-2">
+          <div class="grid grid-cols-2 gap-2">
+            <button id="btnLaunch" class="py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 active:scale-95 font-bold text-white transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2">
+              <i data-lucide="play" class="w-4 h-4 fill-current"></i> 발사! (Launch)
+            </button>
+            <button id="btnReset" class="py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 font-bold text-slate-300 transition border border-slate-700 flex items-center justify-center gap-2">
+              <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 초기화 (Reset)
+            </button>
+          </div>
+          <!-- 배속 조절 -->
+          <div class="flex items-center justify-between text-xs pt-1">
+            <span class="text-slate-400">시뮬레이션 배속:</span>
+            <div class="flex gap-1" id="speedControls">
+              <button onclick="setSimSpeed(0.5)" id="speed-0-5" class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:bg-slate-700">0.5x</button>
+              <button onclick="setSimSpeed(1.0)" id="speed-1-0" class="px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-500/30 font-bold">1.0x</button>
+              <button onclick="setSimSpeed(2.0)" id="speed-2-0" class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:bg-slate-700">2.0x</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 오른쪽 시뮬레이션 영역 및 데이터 (8열) -->
+    <section class="lg:col-span-8 flex flex-col gap-6">
+      
+      <!-- 상단 라이브 대시보드 메트릭 -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
+          <span class="text-xs text-slate-400 font-medium">수평 이동 거리</span>
+          <span id="metricDistance" class="text-xl md:text-2xl font-bold font-mono text-cyan-400 mt-1">0.00 m</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
+          <span class="text-xs text-slate-400 font-medium">최고 도달 고도</span>
+          <span id="metricMaxHeight" class="text-xl md:text-2xl font-bold font-mono text-cyan-400 mt-1">0.00 m</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
+          <span class="text-xs text-slate-400 font-medium">최고 비행 속도</span>
+          <span id="metricMaxSpeed" class="text-xl md:text-2xl font-bold font-mono text-amber-400 mt-1">0.0 km/h</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
+          <span class="text-xs text-slate-400 font-medium">총 비행 시간</span>
+          <span id="metricFlightTime" class="text-xl md:text-2xl font-bold font-mono text-emerald-400 mt-1">0.00 s</span>
+        </div>
+      </div>
+
+      <!-- 메인 탭 전환 영역 (캔버스 / 그래프) -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex gap-2">
+            <button onclick="switchTab('simulation')" id="tabBtnSim" class="px-4 py-1.5 rounded-lg text-sm font-semibold transition bg-cyan-950 text-cyan-400 border border-cyan-500/30">
+              <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> 실시간 비행 관측
+            </button>
+            <button onclick="switchTab('graph')" id="tabBtnGraph" class="px-4 py-1.5 rounded-lg text-sm font-semibold transition bg-slate-800 text-slate-400 hover:text-slate-200">
+              <i data-lucide="line-chart" class="w-4 h-4 inline-block mr-1"></i> 데이터 분석 그래프
+            </button>
+          </div>
+          <div class="text-xs font-mono text-slate-400 flex items-center gap-2">
+            상태: <span id="statusBadge" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold border border-slate-700">대기 중 (Standby)</span>
+          </div>
+        </div>
+
+        <!-- 시뮬레이션 캔버스 컨테이너 -->
+        <div id="simTabContent" class="relative overflow-hidden w-full h-[400px] md:h-[480px] bg-slate-950 rounded-xl border border-slate-800">
+          <canvas id="flightCanvas" class="w-full h-full cursor-crosshair block"></canvas>
+          
+          <!-- 호버 툴팁 안내 오버레이 -->
+          <div id="tooltip" class="absolute hidden pointer-events-none bg-slate-900/95 border border-cyan-500/50 p-3 rounded-lg shadow-2xl text-xs font-mono space-y-1 text-slate-200 z-10 backdrop-blur-sm">
+            <div class="font-bold text-cyan-400 mb-1 flex items-center gap-1">
+              <i data-lucide="info" class="w-3.5 h-3.5"></i> 분석 데이터 정보
+            </div>
+            <div>비행 시점: <span id="tipTime" class="font-bold text-white">0.00</span> 초</div>
+            <div>수평 거리: <span id="tipDist" class="font-bold text-white">0.00</span> m</div>
+            <div>수직 고도: <span id="tipHeight" class="font-bold text-white">0.00</span> m</div>
+            <div>비행 속도: <span id="tipSpeed" class="font-bold text-amber-400">0.0</span> km/h</div>
+            <div>남은 기압: <span id="tipPressure" class="font-bold text-cyan-300">0.0</span> atm</div>
+            <div>남은 수량: <span id="tipWater" class="font-bold text-blue-400">0.0</span> mL</div>
+            <div>비행 단계: <span id="tipPhase" class="font-bold text-purple-400">추진</span></div>
+          </div>
+
+          <!-- 로켓 발사 직전 실시간 로켓 내부 시뮬레이션 미니 뷰 -->
+          <div class="absolute top-3 right-3 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-lg p-3 w-40 text-[10px] hidden sm:block">
+            <span class="font-bold text-slate-400 block mb-1.5 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> 실시간 로켓 압력 정보
+            </span>
+            <div class="space-y-1">
+              <div class="flex justify-between">
+                <span>추진제 질량:</span>
+                <span id="livePropMass" class="font-bold text-white font-mono">0.00 kg</span>
+              </div>
+              <div class="flex justify-between">
+                <span>총 탑재 질량:</span>
+                <span id="liveTotalMass" class="font-bold text-white font-mono">0.00 kg</span>
+              </div>
+              <div class="flex justify-between">
+                <span>공기 부피비:</span>
+                <span id="liveAirRatio" class="font-bold text-cyan-400 font-mono">0.0%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 인터랙티브 분석 모드 힌트 배너 -->
+          <div id="interactionHint" class="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-slate-900/90 border border-slate-700 px-4 py-1.5 rounded-full text-[11px] text-slate-300 pointer-events-none flex items-center gap-1.5 shadow-lg shadow-black/50 transition duration-300">
+            <i data-lucide="mouse-pointer" class="w-3.5 h-3.5 text-cyan-400"></i>
+            발사 후, 완성된 궤적에 마우스를 대면 정밀 물리 데이터를 확인할 수 있습니다!
+          </div>
+        </div>
+
+        <!-- 데이터 그래프 컨테이너 -->
+        <div id="graphTabContent" class="hidden w-full h-[400px] md:h-[480px] bg-slate-950 rounded-xl border border-slate-800 p-4">
+          <canvas id="analysisGraph" class="w-full h-full block"></canvas>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- 하단: 물리적 가이드라인 및 왜 그럴까요? 해설 카드 -->
+  <section class="bg-slate-900/50 border-t border-slate-800 py-12 px-6 mt-12">
+    <div class="max-w-7xl mx-auto">
+      <div class="mb-8">
+        <h2 class="text-2xl font-bold tracking-tight text-white mb-2 flex items-center gap-2">
+          <i data-lucide="book-open" class="w-6 h-6 text-cyan-400"></i>
+          물로켓 비행 역학 원리 (Physics Explainer)
+        </h2>
+        <p class="text-sm text-slate-400">변수에 따라 물로켓이 다르게 비행하는 이유를 물리학 관점에서 알아봅시다.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- 원리 1: 작용-반작용과 질량 유동의 딜레마 -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition">
+          <div class="p-2.5 bg-blue-500/10 rounded-xl w-fit text-blue-400 mb-4 border border-blue-500/20">
+            <i data-lucide="arrow-up-down" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-base font-bold text-white mb-2">1. 작용-반작용과 질량 유동 (Newton's 3rd Law)</h3>
+          <p class="text-xs text-slate-400 leading-relaxed space-y-2">
+            물로켓은 공기의 힘이 아니라, 뒤로 분출되는 <strong class="text-cyan-400">'물(작용 질량)'</strong>이 뿜어내는 운동량의 반작용으로 날아갑니다. 
+            <br><br>
+            질량 보존과 운동량 보존 법칙에 따르면, 추진체의 질량유량($dm/dt$)과 분출속도($v_e$)가 클수록 더 큰 추진력($T$)을 얻습니다. 
+            <br><br>
+            따라서 <strong>공기만 가득 채우고 발사하면(물 0%)</strong> 밀어내는 추진체의 질량이 너무 작아 추진 시간이 극단적으로 짧고(약 0.01초) 높이 날지 못합니다. 
+          </p>
+        </div>
+
+        <!-- 원리 2: 최적의 물 양과 공기 압축 공간 -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition">
+          <div class="p-2.5 bg-cyan-500/10 rounded-xl w-fit text-cyan-400 mb-4 border border-cyan-500/20">
+            <i data-lucide="gauge" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-base font-bold text-white mb-2">2. 물 충전량의 딜레마 (Volume Optimization)</h3>
+          <p class="text-xs text-slate-400 leading-relaxed space-y-2">
+            왜 물을 가득 채우면 날지 못할까요? 압축된 공기는 물을 밀어내는 <strong>'용수철(에너지 저장고)'</strong> 역할을 합니다.
+            <br><br>
+            <strong>물이 너무 많으면(예: 95%)</strong> 압축 공기가 들어갈 공간이 거의 없습니다. 발사 직후 물이 아주 조금만 뿜어져 나와도 공기의 부피가 급격히 늘어 기압이 거의 즉시 대기압 수준으로 바닥납니다.
+            <br><br>
+            이상적인 밸런스는 병의 약 <strong>30% ~ 40% 부피를 물로 채우고</strong>, 나머지 60% 이상을 강력하게 압축된 공기로 가득 채우는 것입니다. 
+          </p>
+        </div>
+
+        <!-- 원리 3: 발사각도와 공기 저항 -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition">
+          <div class="p-2.5 bg-amber-500/10 rounded-xl w-fit text-amber-400 mb-4 border border-amber-500/20">
+            <i data-lucide="compass" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-base font-bold text-white mb-2">3. 현실의 발사각과 공기저항 (Air Resistance)</h3>
+          <p class="text-xs text-slate-400 leading-relaxed space-y-2">
+            공기가 없는 진공 상태에서는 포물선 운동 공식에 따라 <strong class="text-amber-400">45°</strong>가 가장 멀리 날아가는 황금각도입니다.
+            <br><br>
+            하지만 물로켓은 속도의 제곱에 비례하는 <strong class="text-amber-400">공기 저항(Aerodynamic Drag)</strong>을 받습니다. 또한 추진 초기에는 매우 무겁고, 후기에는 물이 소진되어 가볍습니다.
+            <br><br>
+            현실적인 환경에서는 대개 <strong>38° ~ 42°</strong> 정도로 약간 낮춘 발사각도가 공기 저항을 덜 받으면서 더 길게 포물선 궤적을 그리며 미끄러져 수평 거리가 극대화됩니다.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- 푸터 -->
+  <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500 bg-slate-950">
+    <p>© 2026 Interactive Physics Lab. Designed for educational experiment. All simulation physics models calculated dynamically.</p>
+  </footer>
+
+  <script>
+    // --- 물리 엔진 핵심 파라미터 ---
+    const G = 9.80665;         // 중력 가속도 (m/s^2)
+    const RHO_WATER = 1000;    // 물의 밀도 (kg/m^3)
+    const RHO_AIR = 1.204;     // 대기 공기 밀도 (kg/m^3)
+    const P_ATM = 101325;      // 1 기압 (Pa)
+    const BOTTLE_VOL = 0.0015; // 1.5 L 페트병 부피 (m^3)
+    const NOZZLE_DIA = 0.015;  // 분사 노즐 직경 (m) - 실제 페트병 주둥이 크기 수준 (약 1.5cm)
+    const NOZZLE_AREA = (Math.PI * NOZZLE_DIA * NOZZLE_DIA) / 4;
+    const BOTTLE_DIA = 0.09;   // 페트병 지름 (m, 약 9cm)
+    const BOTTLE_AREA = (Math.PI * BOTTLE_DIA * BOTTLE_DIA) / 4;
+    const DRAG_COEFF = 0.38;   // 물로켓 공기 저항 계수 (CD) - 유선형 탄두 장착 감안
+
+    // 시뮬레이션 상태 변수
+    let simState = {
+      running: false,
+      paused: false,
+      time: 0,
+      speedMultiplier: 1.0,
+      activeTab: 'simulation', // 'simulation' | 'graph'
+      
+      // 사용자 입력 파라미터들
+      angle: 45,               // 발사각 (도)
+      dryMass: 0.15,           // 건조질량 (kg)
+      waterVol: 0.00045,       // 물 부피 (m^3)
+      initPressure: 4.5 * P_ATM, // 초기 절대 압력 (Pa)
+
+      // 비행중인 로켓 상태
+      rocket: {
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        mass: 0.15,
+        waterVol: 0.00045,
+        pressure: 4.5 * P_ATM,
+        phase: 'standby', // 'standby' | 'thrust' | 'coast' | 'landed'
+        theta: 0          // 진행 방향 각도 (rad)
+      },
+
+      // 비행 결과 요약 및 궤적 배열
+      trajectory: [], // {x, y, vx, vy, t, waterVol, pressure, phase}
+      maxHeight: 0,
+      maxSpeed: 0,
+      flightDistance: 0,
+      flightTime: 0
+    };
+
+    // UI 엘리먼트 획득
+    const canvas = document.getElementById('flightCanvas');
+    const ctx = canvas.getContext('2d');
+    const graphCanvas = document.getElementById('analysisGraph');
+    const graphCtx = graphCanvas.getContext('2d');
+    const tooltip = document.getElementById('tooltip');
+
+    // 입력 컴포넌트들
+    const sliderAngle = document.getElementById('angle');
+    const valAngle = document.getElementById('angleVal');
+    const sliderDryMass = document.getElementById('dryMass');
+    const valDryMass = document.getElementById('dryMassVal');
+    const sliderWaterVol = document.getElementById('waterVol');
+    const valWaterVol = document.getElementById('waterVolVal');
+    const sliderPressure = document.getElementById('pressure');
+    const valPressure = document.getElementById('pressureVal');
+
+    const btnLaunch = document.getElementById('btnLaunch');
+    const btnReset = document.getElementById('btnReset');
+    const statusBadge = document.getElementById('statusBadge');
+    
+    // 메트릭 엘리먼트
+    const metricDistance = document.getElementById('metricDistance');
+    const metricMaxHeight = document.getElementById('metricMaxHeight');
+    const metricMaxSpeed = document.getElementById('metricMaxSpeed');
+    const metricFlightTime = document.getElementById('metricFlightTime');
+
+    // 노즐 부수적인 실시간 미니 정보
+    const livePropMass = document.getElementById('livePropMass');
+    const liveTotalMass = document.getElementById('liveTotalMass');
+    const liveAirRatio = document.getElementById('liveAirRatio');
+
+    // 비주얼 비율 바
+    const waterRatioIndicator = document.getElementById('waterRatioIndicator');
+    const airRatioIndicator = document.getElementById('airRatioIndicator');
+    const volumeRatioText = document.getElementById('volumeRatioText');
+
+    // 고정 시간 단계 (Substepping 반영)
+    const substeps = 5;
+    const baseDt = 0.01; // 한 프레임당 가상 계산 누적 단위 초
+
+    // 캔버스 드로잉을 위한 카메라 변수 (이동 가능한 뷰포트 자동 비율 계산용)
+    let camera = {
+      scale: 10,  // 1미터당 픽셀 크기 (최저 10픽셀/미터)
+      offsetX: 40,
+      offsetY: 40,
+    };
+
+    // 파티클 시스템 (물줄기 스프레이 효과)
+    let particles = [];
+
+    // 초기화 및 이벤트 리스너 바인딩
+    window.addEventListener('load', () => {
+      // Lucide 아이콘 렌더링
+      lucide.createIcons();
+      
+      // 반응형 캔버스 크기 맞춤
+      resizeCanvas();
+      window.addEventListener('resize', () => {
+        resizeCanvas();
+        draw();
+      });
+
+      // 슬라이더 바인딩
+      initSliders();
+      
+      // 버튼 바인딩
+      btnLaunch.addEventListener('click', toggleLaunch);
+      btnReset.addEventListener('click', resetSimulation);
+
+      // 마우스 인터랙션 지원 (궤적 분석)
+      canvas.addEventListener('mousemove', handleCanvasMouseMove);
+      canvas.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+      });
+
+      // 터치 이벤트 대응 (모바일)
+      canvas.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 0) {
+          const touch = e.touches[0];
+          const rect = canvas.getBoundingClientRect();
+          const fakeEvent = {
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            target: canvas
+          };
+          handleCanvasMouseMove(fakeEvent);
+        }
+      });
+
+      // 초기 설정 주입 및 대기 화면 그리기
+      updateInputsFromSliders();
+      resetSimulation();
+    });
+
+    function resizeCanvas() {
+      // 디바이스 픽셀 비율 대응
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+      ctx.scale(dpr, dpr);
+
+      // 그래프 캔버스도 리사이즈
+      if (graphCanvas.parentElement) {
+        const gRect = graphCanvas.parentElement.getBoundingClientRect();
+        graphCanvas.width = gRect.width * dpr;
+        graphCanvas.height = gRect.height * dpr;
+        graphCanvas.style.width = gRect.width + 'px';
+        graphCanvas.style.height = gRect.height + 'px';
+        graphCtx.scale(dpr, dpr);
+      }
+    }
+
+    // 슬라이더 입력 반응 및 업데이트 함수들
+    function initSliders() {
+      const updateFn = () => {
+        updateInputsFromSliders();
+        if (!simState.running) {
+          resetToStandby();
+        }
+      };
+
+      sliderAngle.addEventListener('input', updateFn);
+      sliderDryMass.addEventListener('input', updateFn);
+      sliderWaterVol.addEventListener('input', updateFn);
+      sliderPressure.addEventListener('input', updateFn);
+    }
+
+    function updateInputsFromSliders() {
+      simState.angle = parseFloat(sliderAngle.value);
+      valAngle.innerText = `${simState.angle}°`;
+
+      const dryMassG = parseFloat(sliderDryMass.value);
+      simState.dryMass = dryMassG / 1000; // g -> kg
+      valDryMass.innerText = `${dryMassG} g`;
+
+      const waterVolML = parseFloat(sliderWaterVol.value);
+      simState.waterVol = waterVolML / 1000000; // mL -> m^3
+      valWaterVol.innerText = `${waterVolML} mL`;
+
+      const pressAtm = parseFloat(sliderPressure.value);
+      simState.initPressure = pressAtm * P_ATM; // atm -> Pa
+      valPressure.innerText = `${pressAtm.toFixed(1)} atm`;
+
+      // 1.5L 페트병 내 물 주입 기수 부피비율 인디케이터 갱신
+      const bottleVolML = BOTTLE_VOL * 1000000; // 1500 mL
+      const ratio = (waterVolML / bottleVolML) * 100;
+      waterRatioIndicator.style.width = `${ratio}%`;
+      volumeRatioText.innerText = `전체 1.5L 중 물 ${ratio.toFixed(1)}% 충전 (압축 공간 ${(100 - ratio).toFixed(1)}%)`;
+
+      // 실시간 탑재 정보 업데이트
+      const propMass = (simState.waterVol * RHO_WATER).toFixed(3);
+      const totalMass = (simState.dryMass + simState.waterVol * RHO_WATER).toFixed(3);
+      livePropMass.innerText = `${propMass} kg`;
+      liveTotalMass.innerText = `${totalMass} kg`;
+      liveAirRatio.innerText = `${(100 - ratio).toFixed(1)}%`;
+    }
+
+    // 프리셋 데이터 적용기
+    function applyPreset(presetType) {
+      if (simState.running) {
+        if (!confirm("현재 진행 중인 발사 시뮬레이션이 중단됩니다. 프리셋을 적용할까요?")) {
+          return;
+        }
+      }
+
+      switch(presetType) {
+        case 'optimal':
+          sliderAngle.value = 40;
+          sliderDryMass.value = 160;
+          sliderWaterVol.value = 450; // 약 30% 부피 (초적화)
+          sliderPressure.value = 6.0;
+          break;
+        case 'nowater':
+          sliderAngle.value = 45;
+          sliderDryMass.value = 150;
+          sliderWaterVol.value = 0; // 공기비행
+          sliderPressure.value = 5.0;
+          break;
+        case 'fullwater':
+          sliderAngle.value = 45;
+          sliderDryMass.value = 150;
+          sliderWaterVol.value = 1150; // 물 충전 한도 가득 채움
+          sliderPressure.value = 5.0;
+          break;
+        case 'heavy':
+          sliderAngle.value = 42;
+          sliderDryMass.value = 750; // 쇳가루를 넣은 엄청 무거운 로켓
+          sliderWaterVol.value = 400;
+          sliderPressure.value = 5.5;
+          break;
+      }
+
+      updateInputsFromSliders();
+      resetSimulation();
+    }
+
+    // 시뮬레이션 배속 설정
+    function setSimSpeed(speed) {
+      simState.speedMultiplier = speed;
+      document.querySelectorAll('#speedControls button').forEach(btn => {
+        btn.className = "px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:bg-slate-700";
+      });
+      const activeBtn = document.getElementById(`speed-${speed.toString().replace('.', '-')}`);
+      if (activeBtn) {
+        activeBtn.className = "px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-500/30 font-bold";
+      }
+    }
+
+    // 탭 스위처
+    function switchTab(tabId) {
+      simState.activeTab = tabId;
+      const tabSim = document.getElementById('tabBtnSim');
+      const tabGraph = document.getElementById('tabBtnGraph');
+      const contentSim = document.getElementById('simTabContent');
+      const contentGraph = document.getElementById('graphTabContent');
+
+      if (tabId === 'simulation') {
+        tabSim.className = "px-4 py-1.5 rounded-lg text-sm font-semibold transition bg-cyan-950 text-cyan-400 border border-cyan-500/30";
+        tabGraph.className = "px-4 py-1.5 rounded-lg text-sm font-semibold transition bg-slate-800 text-slate-400 hover:text-slate-200";
+        contentSim.classList.remove('hidden');
+        contentGraph.classList.add('hidden');
+        resizeCanvas();
+        draw();
+      } else {
+        tabGraph.className = "px-4 py-1.5 rounded-lg text-sm font-semibold transition bg-cyan-950 text-cyan-400 border border-cyan-500/30";
+        tabSim.className = "px-4 py-1.5 rounded-lg text-sm font-semibold transition bg-slate-800 text-slate-400 hover:text-slate-200";
+        contentGraph.classList.remove('hidden');
+        contentSim.classList.add('hidden');
+        resizeCanvas();
+        drawGraph();
+      }
+    }
+
+    // 시뮬레이션 상태 복원 (초기 제자리 대기)
+    function resetToStandby() {
+      const thetaRad = (simState.angle * Math.PI) / 180;
+      simState.rocket = {
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        mass: simState.dryMass + simState.waterVol * RHO_WATER,
+        waterVol: simState.waterVol,
+        pressure: simState.initPressure,
+        phase: 'standby',
+        theta: thetaRad
+      };
+      
+      simState.time = 0;
+      simState.maxHeight = 0;
+      simState.maxSpeed = 0;
+      simState.flightDistance = 0;
+      simState.flightTime = 0;
+      simState.trajectory = [];
+      particles = [];
+
+      updateMetrics();
+      statusBadge.innerText = "대기 중 (Standby)";
+      statusBadge.className = "px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold border border-slate-700";
+      
+      // 카메라 초기 확대 설정 (근거리 관측)
+      camera.scale = 20; 
+      camera.offsetX = 60;
+      camera.offsetY = 60;
+
+      draw();
+    }
+
+    function resetSimulation() {
+      simState.running = false;
+      simState.paused = false;
+      btnLaunch.innerHTML = '<i data-lucide="play" class="w-4 h-4 fill-current"></i> 발사! (Launch)';
+      btnLaunch.className = "py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 active:scale-95 font-bold text-white transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2";
+      resetToStandby();
+      lucide.createIcons();
+    }
+
+    function toggleLaunch() {
+      if (!simState.running) {
+        // 새로이 비행 시작
+        resetToStandby();
+        simState.running = true;
+        simState.paused = false;
+        simState.rocket.phase = 'thrust';
+        
+        // 발사 초기 각도에 따른 가상의 무시 못할 가이드레일 속도 부여 (약간의 힘)
+        const thetaRad = (simState.angle * Math.PI) / 180;
+        simState.rocket.vx = 0.1 * Math.cos(thetaRad);
+        simState.rocket.vy = 0.1 * Math.sin(thetaRad);
+
+        btnLaunch.innerHTML = '<i data-lucide="pause" class="w-4 h-4 fill-current"></i> 일시정지';
+        btnLaunch.className = "py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-95 font-bold text-white transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2";
+        statusBadge.innerText = "추진 단계 (Thrusting)";
+        statusBadge.className = "px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 font-bold border border-blue-500/30";
+        lucide.createIcons();
+
+        lastTime = performance.now();
+        requestAnimationFrame(simulationLoop);
+      } else {
+        // 이미 비행 중일 경우 일시정지 토글
+        simState.paused = !simState.paused;
+        if (simState.paused) {
+          btnLaunch.innerHTML = '<i data-lucide="play" class="w-4 h-4 fill-current"></i> 이어서 비행';
+          btnLaunch.className = "py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 active:scale-95 font-bold text-white transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2";
+          statusBadge.innerText = "일시 정지";
+          statusBadge.className = "px-2 py-0.5 rounded bg-slate-800 text-amber-400 font-bold border border-amber-500/30";
+        } else {
+          btnLaunch.innerHTML = '<i data-lucide="pause" class="w-4 h-4 fill-current"></i> 일시정지';
+          btnLaunch.className = "py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-95 font-bold text-white transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2";
+          updateStatusText();
+          lastTime = performance.now();
+          requestAnimationFrame(simulationLoop);
+        }
+        lucide.createIcons();
+      }
+    }
+
+    function updateStatusText() {
+      if (simState.rocket.phase === 'thrust') {
+        statusBadge.innerText = "추진 단계 (Thrust)";
+        statusBadge.className = "px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 font-bold border border-blue-500/30";
+      } else if (simState.rocket.phase === 'coast') {
+        const sign = simState.rocket.vy >= 0 ? "상승" : "낙하";
+        statusBadge.innerText = `관성 ${sign} (Coast)`;
+        statusBadge.className = simState.rocket.vy >= 0 ? 
+          "px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-bold border border-cyan-500/30" : 
+          "px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/30";
+      } else if (simState.rocket.phase === 'landed') {
+        statusBadge.innerText = "착륙 완료 (Landed)";
+        statusBadge.className = "px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30";
+      }
+    }
+
+
+    // --- 시뮬레이션 핵심 계산 루프 ---
+    let lastTime = 0;
+
+    function simulationLoop(timestamp) {
+      if (!simState.running || simState.paused) return;
+
+      // 경과 시간 제어 및 배속 반영
+      let dt = baseDt * simState.speedMultiplier;
+
+      // 고정 물리 프레임 서브스테핑(Substepping) 기법으로 초고속 거동 상태 적분 오차 최소화
+      const subDt = dt / substeps;
+      for (let s = 0; s < substeps; s++) {
+        integratePhysics(subDt);
+        if (simState.rocket.phase === 'landed') {
+          simState.running = false;
+          btnLaunch.innerHTML = '<i data-lucide="play" class="w-4 h-4 fill-current"></i> 재발사!';
+          btnLaunch.className = "py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 active:scale-95 font-bold text-white transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2";
+          updateStatusText();
+          lucide.createIcons();
+          break;
+        }
+      }
+
+      // 파티클 업데이트
+      updateParticles();
+
+      // 화면 스케일링 자동 조정
+      adjustCameraScale();
+
+      // UI 및 캔버스 다시 그리기
+      updateMetrics();
+      draw();
+
+      if (simState.running && !simState.paused) {
+        requestAnimationFrame(simulationLoop);
+      }
+    }
+
+    // --- 수치 적분 물리 수식 (주요 유체 가속 원리 반영) ---
+    function integratePhysics(dt) {
+      let r = simState.rocket;
+      if (r.phase === 'landed') return;
+
+      simState.time += dt;
+
+      // 1. 상태 변수 추출
+      let x = r.x;
+      let y = r.y;
+      let vx = r.vx;
+      let vy = r.vy;
+      let currentWaterVol = r.waterVol;
+      let currentPressure = r.pressure;
+      let theta = Math.atan2(vy, vx);
+      if (x === 0 && y === 0 && vx === 0 && vy === 0) {
+        theta = (simState.angle * Math.PI) / 180;
+      }
+      r.theta = theta;
+
+      // 힘 누적 초기화
+      let Fx = 0;
+      let Fy = 0;
+      let thrust = 0;
+
+      // 2. 비행 단계 구분 및 힘 연산
+      if (r.phase === 'thrust') {
+        // 물 분출 추진 단계
+        if (currentWaterVol > 0) {
+          // 게이지 압력 계산
+          let p_gauge = currentPressure - P_ATM;
+          if (p_gauge < 0) p_gauge = 0;
+
+          if (p_gauge > 0) {
+            // 베르누이 방정식에 기반한 노즐 분출 유속: v_e = sqrt(2 * p_gauge / rho_water)
+            let v_e = Math.sqrt((2 * p_gauge) / RHO_WATER);
+
+            // 질량 유량 (Mass flow rate): dm/dt = rho * A_nozzle * v_e
+            let massFlowRate = RHO_WATER * NOZZLE_AREA * v_e;
+
+            // 추력 (Thrust): T = dm/dt * v_e = 2 * A_nozzle * p_gauge
+            thrust = massFlowRate * v_e;
+
+            // 추진체(물) 감소 처리
+            let volLoss = NOZZLE_AREA * v_e * dt;
+            currentWaterVol -= volLoss;
+            if (currentWaterVol < 0) currentWaterVol = 0;
+
+            // 기수(에어) 팽창 처리 (Isothermal or adiabatic, 여기선 보수적 단열 팽창 적용 gamma = 1.4)
+            // P = P_0 * (V_air0 / V_air)^1.4
+            let initialAirVol = BOTTLE_VOL - simState.waterVol;
+            let currentAirVol = BOTTLE_VOL - currentWaterVol;
+            currentPressure = simState.initPressure * Math.pow(initialAirVol / currentAirVol, 1.4);
+            if (currentPressure < P_ATM) currentPressure = P_ATM;
+          } else {
+            thrust = 0;
+          }
+
+          // 파티클 방출 트리거 (추력 크기에 연동)
+          if (thrust > 0 && Math.random() < 0.6) {
+            spawnParticles(x, y, theta, thrust);
+          }
+        } else {
+          // 물 전량 소진 -> 잔여 압축 공기 순간 분출 후 관성 비행 전환
+          r.phase = 'coast';
+          thrust = 0;
+          updateStatusText();
+        }
+      } else {
+        // 관성 자유 비행 단계
+        thrust = 0;
+        currentPressure = P_ATM;
+        currentWaterVol = 0;
+      }
+
+      // 로켓의 총 실시간 질량
+      let currentMass = simState.dryMass + (currentWaterVol * RHO_WATER);
+
+      // 추진력 방향 결합
+      Fx += thrust * Math.cos(theta);
+      Fy += thrust * Math.sin(theta);
+
+      // 3. 중력 작용 (음의 Y축 방향)
+      Fy -= currentMass * G;
+
+      // 4. 공기 저항 (속도의 제곱에 비례, 운동 반대방향)
+      let v_magnitude = Math.sqrt(vx * vx + vy * vy);
+      if (v_magnitude > 0.01) {
+        // 항력: F_drag = 0.5 * rho * C_d * Area * v^2
+        // 로켓 진행 투영 면적은 페트병 최대 단면적으로 가정
+        let drag = 0.5 * RHO_AIR * DRAG_COEFF * BOTTLE_AREA * v_magnitude * v_magnitude;
+        
+        Fx -= drag * (vx / v_magnitude);
+        Fy -= drag * (vy / v_magnitude);
+      }
+
+      // 5. 뉴턴 제2법칙: 가속도 연산
+      let ax = Fx / currentMass;
+      let ay = Fy / currentMass;
+
+      // 속도 및 위치 시간 적분
+      vx += ax * dt;
+      vy += ay * dt;
+      x += vx * dt;
+      y += vy * dt;
+
+      // 6. 충돌 판정 (지면 y=0 아래로 떨어졌을 때)
+      if (y <= 0 && vx !== 0 && vy !== 0) {
+        y = 0;
+        vx = 0;
+        vy = 0;
+        ax = 0;
+        ay = 0;
+        r.phase = 'landed';
+        currentWaterVol = 0;
+        currentPressure = P_ATM;
+      }
+
+      // 실시간 상태 반영
+      r.x = x;
+      r.y = y;
+      r.vx = vx;
+      r.vy = vy;
+      r.waterVol = currentWaterVol;
+      r.pressure = currentPressure;
+      r.mass = currentMass;
+
+      // 결과 분석 누적 기록
+      let currentSpeedKmh = v_magnitude * 3.6; // m/s -> km/h
+      if (y > simState.maxHeight) simState.maxHeight = y;
+      if (currentSpeedKmh > simState.maxSpeed) simState.maxSpeed = currentSpeedKmh;
+      simState.flightDistance = x;
+      simState.flightTime = simState.time;
+
+      // 궤적 포인트 추가 (충돌 전까지 0.05초 간격 수준으로 압축 저장)
+      if (simState.trajectory.length === 0 || simState.time - simState.trajectory[simState.trajectory.length - 1].t > 0.03) {
+        simState.trajectory.push({
+          x: x,
+          y: y,
+          vx: vx,
+          vy: vy,
+          speed: currentSpeedKmh,
+          t: simState.time,
+          waterVol: currentWaterVol,
+          pressure: currentPressure,
+          phase: r.phase
+        });
+      }
+    }
+
+    // --- 수치 메트릭 디스플레이 업데이트 ---
+    function updateMetrics() {
+      metricDistance.innerText = `${simState.flightDistance.toFixed(2)} m`;
+      metricMaxHeight.innerText = `${simState.maxHeight.toFixed(2)} m`;
+      metricMaxSpeed.innerText = `${simState.maxSpeed.toFixed(1)} km/h`;
+      metricFlightTime.innerText = `${simState.flightTime.toFixed(2)} s`;
+    }
+
+    // --- 카메라 확대비율(Scale) 자동 추적기 ---
+    function adjustCameraScale() {
+      if (simState.trajectory.length < 2) return;
+
+      // 비행 경로 전체 좌표 박스 수집
+      let maxX = 5;
+      let maxY = 5;
+      simState.trajectory.forEach(pt => {
+        if (pt.x > maxX) maxX = pt.x;
+        if (pt.y > maxY) maxY = pt.y;
+      });
+
+      // 현재 로켓 위치도 반영
+      if (simState.rocket.x > maxX) maxX = simState.rocket.x;
+      if (simState.rocket.y > maxY) maxY = simState.rocket.y;
+
+      // 화면 내부 여백 확보용 버퍼 추가
+      const paddingX = maxX * 1.25 + 5;
+      const paddingY = maxY * 1.35 + 5;
+
+      // 캔버스 사이즈 비율 대비 최적 단위 픽셀 비율 도출
+      const drawW = canvas.width / (window.devicePixelRatio || 1) - camera.offsetX * 2;
+      const drawH = canvas.height / (window.devicePixelRatio || 1) - camera.offsetY * 2;
+
+      const scaleX = drawW / paddingX;
+      const scaleY = drawH / paddingY;
+
+      // 두 비율 중 작은 쪽에 맞춤 (화면 바깥 이탈 예방)
+      let targetScale = Math.min(scaleX, scaleY);
+      
+      // 지나치게 미시적인 클로즈업 또는 아웃포커스 한계 설정
+      targetScale = Math.max(2.5, Math.min(30, targetScale));
+
+      // 부드러운 카메라 주밍 보간
+      camera.scale += (targetScale - camera.scale) * 0.1;
+    }
+
+    // --- 파티클 시스템 (물방울 분사 시각효과) ---
+    function spawnParticles(x, y, angle, force) {
+      // 로켓 노즐 방향 반대 방향으로 방사
+      const oppositeAngle = angle + Math.PI + (Math.random() - 0.5) * 0.4;
+      const count = Math.min(25, Math.floor(force / 5) + 3);
+
+      for (let i = 0; i < count; i++) {
+        const speed = (Math.random() * 8 + 3) * (force / 100 + 0.5);
+        particles.push({
+          x: x,
+          y: y,
+          vx: Math.cos(oppositeAngle) * speed + (Math.random() - 0.5) * 2,
+          vy: Math.sin(oppositeAngle) * speed + (Math.random() - 0.5) * 2,
+          life: 1.0,
+          decay: Math.random() * 0.08 + 0.04,
+          size: Math.random() * 3.5 + 1.5,
+          color: `rgba(186, 230, 253, ${Math.random() * 0.7 + 0.3})` // 아쿠아 스카이 블루색
+        });
+      }
+    }
+
+    function updateParticles() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.x += p.vx * baseDt;
+        p.y += p.vy * baseDt;
+        p.vy -= G * 0.2 * baseDt; // 파티클에도 미세한 가벼운 낙하력 적용
+        p.life -= p.decay;
+
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+    }
+
+    // --- 물리 화면 캔버스 그래픽 렌더링 ---
+    function draw() {
+      const dpr = window.devicePixelRatio || 1;
+      const width = canvas.width / dpr;
+      const height = canvas.height / dpr;
+
+      // 배경 클리어
+      ctx.fillStyle = '#020617'; // slate-950
+      ctx.fillRect(0, 0, width, height);
+
+      // 그리드 및 배경 디테일 드로잉
+      drawAtmosphereAndGrid(width, height);
+
+      // 지면 그리기
+      drawGround(width, height);
+
+      // 발사대 그리기
+      drawLaunchPad();
+
+      // 전체 비행 궤적선 그리기 (잔상 Trace 효과)
+      drawTrajectoryTrace();
+
+      // 분사 물줄기 파티클 드로잉
+      drawParticles();
+
+      // 실시간 비행 로켓 드로잉
+      if (simState.rocket.phase !== 'landed') {
+        drawRocket();
+      } else {
+        // 착륙 지점에 플래그나 크래시 효과 표시
+        drawLandingMarker();
+      }
+    }
+
+    // 좌표계 변환 헬퍼 (가상 세계 m 좌표 -> 화면 픽셀 좌표)
+    function worldToScreen(wx, wy) {
+      const dpr = window.devicePixelRatio || 1;
+      const screenH = canvas.height / dpr;
+      
+      const sx = camera.offsetX + wx * camera.scale;
+      const sy = screenH - camera.offsetY - wy * camera.scale;
+      return { x: sx, y: sy };
+    }
+
+    // 화면 픽셀 좌표 -> 가상 세계 m 좌표 역변환
+    function screenToWorld(sx, sy) {
+      const dpr = window.devicePixelRatio || 1;
+      const screenH = canvas.height / dpr;
+
+      const wx = (sx - camera.offsetX) / camera.scale;
+      const wy = (screenH - camera.offsetY - sy) / camera.scale;
+      return { x: wx, y: wy };
+    }
+
+    // 하늘 그리드 및 거리 표시계
+    function drawAtmosphereAndGrid(width, height) {
+      ctx.strokeStyle = 'rgba(51, 65, 85, 0.15)'; // slate-700
+      ctx.lineWidth = 1;
+      ctx.fillStyle = 'rgba(71, 85, 105, 0.4)';
+
+      // 눈금 격자 단위 (스케일에 맞춰 동적으로 5m, 10m, 20m 격자 결정)
+      let step = 5;
+      if (camera.scale < 5) step = 20;
+      else if (camera.scale < 10) step = 10;
+
+      // 세로선 (거리 축)
+      const maxWInMeters = width / camera.scale;
+      for (let m = 0; m < maxWInMeters; m += step) {
+        const pt = worldToScreen(m, 0);
+        ctx.beginPath();
+        ctx.moveTo(pt.x, 0);
+        ctx.lineTo(pt.x, height - camera.offsetY);
+        ctx.stroke();
+
+        // 거리 표시 텍스트
+        ctx.font = '10px font-mono';
+        ctx.fillText(`${m}m`, pt.x + 4, height - camera.offsetY + 15);
+      }
+
+      // 가로선 (고도 축)
+      const maxHInMeters = height / camera.scale;
+      for (let h = 0; h < maxHInMeters; h += step) {
+        const pt = worldToScreen(0, h);
+        ctx.beginPath();
+        ctx.moveTo(camera.offsetX, pt.y);
+        ctx.lineTo(width, pt.y);
+        ctx.stroke();
+
+        // 고도 표시 텍스트
+        if (h > 0) {
+          ctx.font = '10px font-mono';
+          ctx.fillText(`${h}m`, camera.offsetX - 32, pt.y + 4);
+        }
+      }
+    }
+
+    function drawGround(width, height) {
+      // 대지
+      const groundY = height - camera.offsetY;
+      
+      const gradient = ctx.createLinearGradient(0, groundY, 0, height);
+      gradient.addColorStop(0, '#064e3b'); // 짙은 녹색 (emerald-950)
+      gradient.addColorStop(1, '#022c22');
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, groundY, width, camera.offsetY);
+
+      // 상단 잔디 라인 강조
+      ctx.strokeStyle = '#10b981'; // emerald-500
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, groundY);
+      ctx.lineTo(width, groundY);
+      ctx.stroke();
+    }
+
+    function drawLaunchPad() {
+      const pt = worldToScreen(0, 0);
+      
+      // 발사대 받침대
+      ctx.fillStyle = '#475569'; // slate-600
+      ctx.fillRect(pt.x - 12, pt.y - 4, 24, 4);
+
+      // 발사 가이드 레일 기둥
+      ctx.strokeStyle = '#94a3b8'; // slate-400
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(pt.x, pt.y);
+      
+      // 발사 각도 연장선으로 시각화 가이드라인 처리
+      const angleRad = (simState.angle * Math.PI) / 180;
+      const railLen = 20; // 픽셀 단위
+      ctx.lineTo(pt.x + Math.cos(angleRad) * railLen, pt.y - Math.sin(angleRad) * railLen);
+      ctx.stroke();
+    }
+
+    function drawTrajectoryTrace() {
+      if (simState.trajectory.length < 2) return;
+
+      // 1. 기본 선 그리기
+      ctx.beginPath();
+      const startPt = worldToScreen(simState.trajectory[0].x, simState.trajectory[0].y);
+      ctx.moveTo(startPt.x, startPt.y);
+
+      for (let i = 1; i < simState.trajectory.length; i++) {
+        const pt = worldToScreen(simState.trajectory[i].x, simState.trajectory[i].y);
+        ctx.lineTo(pt.x, pt.y);
+      }
+
+      ctx.strokeStyle = '#06b6d4'; // neon cyan
+      ctx.lineWidth = 2.5;
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = '#06b6d4';
+      ctx.stroke();
+      
+      // 네온 스타일 리셋
+      ctx.shadowBlur = 0;
+
+      // 2. 아포지(최고 도달 고도 지점) 마커 가독성 있게 표기
+      let maxHIndex = 0;
+      let maxH = 0;
+      for (let i = 0; i < simState.trajectory.length; i++) {
+        if (simState.trajectory[i].y > maxH) {
+          maxH = simState.trajectory[i].y;
+          maxHIndex = i;
+        }
+      }
+
+      if (maxH > 0.5) {
+        const apogeePt = worldToScreen(simState.trajectory[maxHIndex].x, simState.trajectory[maxHIndex].y);
+        
+        // 점선 수직 하강 가이드라인
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)'; // red-500
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(apogeePt.x, apogeePt.y);
+        ctx.lineTo(apogeePt.x, worldToScreen(0,0).y);
+        ctx.stroke();
+        ctx.setLineDash([]); // 원상복구
+
+        // 아포지 링 표시
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(apogeePt.x, apogeePt.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 라벨링
+        ctx.font = 'bold 9px font-mono';
+        ctx.fillStyle = '#f87171';
+        ctx.fillText(`최고고도: ${maxH.toFixed(2)}m`, apogeePt.x - 35, apogeePt.y - 10);
+      }
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        const pt = worldToScreen(p.x, p.y);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function drawRocket() {
+      const r = simState.rocket;
+      const pt = worldToScreen(r.x, r.y);
+
+      ctx.save();
+      ctx.translate(pt.x, pt.y);
+      // 캔버스 좌표계 보정 (위치가 커질수록 시계반대방향 회전)
+      ctx.rotate(-r.theta);
+
+      // 로켓 형상 스케일 (미터 단위 -> 픽셀 단위 팽창하되 가독성을 위해 최소 비행 유닛 이상 보정)
+      const rScale = Math.max(0.6, camera.scale * 0.18);
+
+      // 1. 노즐 및 불꽃 (추진력 분출 구간)
+      if (r.phase === 'thrust' && r.waterVol > 0) {
+        const thrustGrad = ctx.createLinearGradient(-25 * rScale, 0, -5 * rScale, 0);
+        thrustGrad.addColorStop(0, 'rgba(255,255,255,0)');
+        thrustGrad.addColorStop(0.5, 'rgba(56, 189, 248, 0.8)'); // sky-400
+        thrustGrad.addColorStop(1, '#ffffff');
+
+        ctx.fillStyle = thrustGrad;
+        ctx.beginPath();
+        ctx.moveTo(-5 * rScale, -4 * rScale);
+        ctx.lineTo(-28 * rScale, -12 * rScale);
+        ctx.lineTo(-28 * rScale, 12 * rScale);
+        ctx.lineTo(-5 * rScale, 4 * rScale);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 2. 로켓 몸통 (페트병 모양 캡슐)
+      ctx.fillStyle = '#f1f5f9'; // 아주 밝은 회색
+      ctx.beginPath();
+      ctx.moveTo(-10 * rScale, -4 * rScale);
+      ctx.lineTo(10 * rScale, -4 * rScale);
+      // 탄두 원호 코네 형상화
+      ctx.quadraticCurveTo(18 * rScale, 0, 10 * rScale, 4 * rScale);
+      ctx.lineTo(-10 * rScale, 4 * rScale);
+      ctx.closePath();
+      ctx.fill();
+
+      // 내부 물 채워짐 가상 실시간 표기 (교육적 표현)
+      const waterRatio = simState.waterVol > 0 ? (r.waterVol / simState.waterVol) : 0;
+      if (waterRatio > 0.01) {
+        ctx.fillStyle = '#3b82f6'; // blue-500 (추진수)
+        ctx.beginPath();
+        // 물은 중력에 쏠리거나 한쪽으로만 차지만, 단순화를 위해 뒤쪽 절반 비율로 표현
+        const fillX = -10 * rScale + (20 * rScale * waterRatio);
+        ctx.moveTo(-10 * rScale, -4 * rScale);
+        ctx.lineTo(fillX, -4 * rScale);
+        ctx.lineTo(fillX, 4 * rScale);
+        ctx.lineTo(-10 * rScale, 4 * rScale);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 3. 로켓 핀 (꼬리 날개)
+      ctx.fillStyle = '#ef4444'; // 빨간색 날개
+      ctx.beginPath();
+      ctx.moveTo(-10 * rScale, -4 * rScale);
+      ctx.lineTo(-16 * rScale, -10 * rScale);
+      ctx.lineTo(-8 * rScale, -4 * rScale);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(-10 * rScale, 4 * rScale);
+      ctx.lineTo(-16 * rScale, 10 * rScale);
+      ctx.lineTo(-8 * rScale, 4 * rScale);
+      ctx.closePath();
+      ctx.fill();
+
+      // 4. 노즐 몰드 라인
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1 * rScale;
+      ctx.beginPath();
+      ctx.moveTo(-10 * rScale, -2 * rScale);
+      ctx.lineTo(-13 * rScale, -2 * rScale);
+      ctx.lineTo(-13 * rScale, 2 * rScale);
+      ctx.lineTo(-10 * rScale, 2 * rScale);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawLandingMarker() {
+      const pt = worldToScreen(simState.flightDistance, 0);
+
+      // 지면 반동 파형
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 10, 0, Math.PI, true);
+      ctx.stroke();
+
+      // 쓰러진 로켓 드로잉
+      ctx.save();
+      ctx.translate(pt.x, pt.y - 2);
+      ctx.rotate(0.12); // 바닥에 살짝 기운 채 쓰러진 각도
+
+      const rScale = Math.max(0.6, camera.scale * 0.18);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(-10 * rScale, -3 * rScale, 20 * rScale, 6 * rScale);
+      
+      // 빨간 탄두
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(10 * rScale, -3 * rScale);
+      ctx.quadraticCurveTo(16 * rScale, 0, 10 * rScale, 3 * rScale);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+
+    // --- 인터랙티브 분석 툴팁 마우스 위치 스캐너 ---
+    function handleCanvasMouseMove(e) {
+      if (simState.trajectory.length < 2) {
+        tooltip.style.display = 'none';
+        return;
+      }
+
+      // 마우스 상대좌표 도출
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // 월드 미터 단위 변환
+      const worldMouse = screenToWorld(mouseX, mouseY);
+
+      // 가장 가까운 궤적 포인트 임계 스캔 (수평 거리 위주 판정)
+      let minDistance = 99999;
+      let closestPoint = null;
+
+      simState.trajectory.forEach(pt => {
+        const dx = pt.x - worldMouse.x;
+        const dy = pt.y - worldMouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestPoint = pt;
+        }
+      });
+
+      // 마우스가 일정 물리 거리 이내(예: 4m 반경)에 인접해 있을 때만 툴팁 표출
+      if (minDistance < 6.0 && closestPoint) {
+        const scrPt = worldToScreen(closestPoint.x, closestPoint.y);
+
+        // 툴팁 위치 배치 (바운더리 안 넘치게 조절)
+        tooltip.style.display = 'block';
+        tooltip.style.left = `${scrPt.x + 15}px`;
+        tooltip.style.top = `${scrPt.y - 45}px`;
+
+        // 정보 바인딩
+        document.getElementById('tipTime').innerText = closestPoint.t.toFixed(2);
+        document.getElementById('tipDist').innerText = closestPoint.x.toFixed(2);
+        document.getElementById('tipHeight').innerText = closestPoint.y.toFixed(2);
+        document.getElementById('tipSpeed').innerText = closestPoint.speed.toFixed(1);
+        
+        const atmPress = closestPoint.pressure / P_ATM;
+        document.getElementById('tipPressure').innerText = atmPress.toFixed(2);
+        
+        const waterML = closestPoint.waterVol * 1000000;
+        document.getElementById('tipWater').innerText = Math.round(waterML);
+
+        let phaseKor = "관성 낙하";
+        if (closestPoint.phase === 'thrust') phaseKor = "수압 추진";
+        else if (closestPoint.vy > 0) phaseKor = "관성 상승";
+        document.getElementById('tipPhase').innerText = phaseKor;
+
+        // 보조 인디케이터 교차선 캔버스 위에 긴급 오버레이 드로잉
+        drawCrosshairs(scrPt.x, scrPt.y);
+      } else {
+        tooltip.style.display = 'none';
+        draw(); // 다시 원상 복귀 드로잉
+      }
+    }
+
+    function drawCrosshairs(sx, sy) {
+      // 툴팁 활성화 시 캔버스를 임시 백업한 후 교차 조준선 보강
+      draw(); 
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)'; // cyan
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+
+      // 가로선
+      ctx.beginPath();
+      ctx.moveTo(camera.offsetX, sy);
+      ctx.lineTo(canvas.width / (window.devicePixelRatio || 1), sy);
+      ctx.stroke();
+
+      // 세로선
+      ctx.beginPath();
+      ctx.moveTo(sx, 0);
+      ctx.lineTo(sx, canvas.height / (window.devicePixelRatio || 1) - camera.offsetY);
+      ctx.stroke();
+
+      ctx.setLineDash([]); // 복구
+
+      // 타겟 원 강조
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+
+    // --- 분석 데이터 정밀 그래프 드로잉 함수 (수동 2D 그래프 구현) ---
+    function drawGraph() {
+      const dpr = window.devicePixelRatio || 1;
+      const width = graphCanvas.width / dpr;
+      const height = graphCanvas.height / dpr;
+
+      graphCtx.fillStyle = '#020617';
+      graphCtx.fillRect(0, 0, width, height);
+
+      if (simState.trajectory.length < 2) {
+        // 비행 데이터 부재 시 예외 화면
+        graphCtx.fillStyle = '#64748b';
+        graphCtx.font = '14px font-sans';
+        graphCtx.textAlign = 'center';
+        graphCtx.fillText('발사를 완료한 후 비행 데이터를 분석 그래프로 확인해 보세요.', width / 2, height / 2);
+        graphCtx.textAlign = 'left'; // 복구
+        return;
+      }
+
+      // 여백 확보
+      const margin = { top: 40, right: 50, bottom: 40, left: 50 };
+      const chartW = width - margin.left - margin.right;
+      const chartH = height - margin.top - margin.bottom;
+
+      // 최대 축 데이터 판별
+      let maxT = simState.flightTime;
+      let maxH = simState.maxHeight;
+      let maxV = simState.maxSpeed; // km/h
+
+      // 축 보호용 한계 설정
+      if (maxT <= 0) maxT = 1;
+      if (maxH <= 0) maxH = 1;
+      if (maxV <= 0) maxV = 1;
+
+      // 그래프 축 가이드 및 격자선 그리기
+      graphCtx.strokeStyle = 'rgba(71, 85, 105, 0.2)';
+      graphCtx.lineWidth = 1;
+      
+      const gridCount = 5;
+      for (let i = 0; i <= gridCount; i++) {
+        const ratio = i / gridCount;
+        const x = margin.left + ratio * chartW;
+        const y = margin.top + ratio * chartH;
+
+        // 수직 보조선 (시간 축)
+        graphCtx.beginPath();
+        graphCtx.moveTo(x, margin.top);
+        graphCtx.lineTo(x, height - margin.bottom);
+        graphCtx.stroke();
+
+        // 수평 보조선
+        graphCtx.beginPath();
+        graphCtx.moveTo(margin.left, y);
+        graphCtx.lineTo(width - margin.right, y);
+        graphCtx.stroke();
+
+        // 텍스트 라벨링
+        graphCtx.fillStyle = '#94a3b8';
+        graphCtx.font = '10px font-mono';
+        
+        // 시간 단위 (X축)
+        const tVal = ratio * maxT;
+        graphCtx.fillText(`${tVal.toFixed(1)}s`, x - 10, height - margin.bottom + 15);
+
+        // 고도 단위 (좌측 Y축)
+        const hVal = (1 - ratio) * maxH;
+        graphCtx.fillStyle = '#06b6d4'; // Cyan
+        graphCtx.fillText(`${hVal.toFixed(1)}m`, margin.left - 42, y + 4);
+
+        // 속도 단위 (우측 Y축)
+        const vVal = (1 - ratio) * maxV;
+        graphCtx.fillStyle = '#f59e0b'; // Amber
+        graphCtx.fillText(`${vVal.toFixed(0)}k`, width - margin.right + 8, y + 4);
+      }
+
+      // X/Y 축 눈금 타이틀
+      graphCtx.fillStyle = '#cbd5e1';
+      graphCtx.font = 'bold 11px font-sans';
+      graphCtx.fillText('시간 (Time)', margin.left + chartW / 2 - 20, height - 10);
+      
+      graphCtx.save();
+      graphCtx.translate(15, margin.top + chartH/2);
+      graphCtx.rotate(-Math.PI / 2);
+      graphCtx.fillStyle = '#06b6d4';
+      graphCtx.fillText('고도 (Altitude, m)', -40, 0);
+      graphCtx.restore();
+
+      graphCtx.save();
+      graphCtx.translate(width - 15, margin.top + chartH/2);
+      graphCtx.rotate(Math.PI / 2);
+      graphCtx.fillStyle = '#f59e0b';
+      graphCtx.fillText('속도 (Speed, km/h)', -40, 0);
+      graphCtx.restore();
+
+      // 데이터 플롯팅 (고도 그래프 - 하늘색 실선)
+      graphCtx.beginPath();
+      simState.trajectory.forEach((pt, idx) => {
+        const tx = margin.left + (pt.t / maxT) * chartW;
+        const ty = margin.top + (1 - pt.y / maxH) * chartH;
+        if (idx === 0) graphCtx.moveTo(tx, ty);
+        else graphCtx.lineTo(tx, ty);
+      });
+      graphCtx.strokeStyle = '#06b6d4';
+      graphCtx.lineWidth = 2.5;
+      graphCtx.stroke();
+
+      // 데이터 플롯팅 (속도 그래프 - 오렌지색 실선)
+      graphCtx.beginPath();
+      simState.trajectory.forEach((pt, idx) => {
+        const tx = margin.left + (pt.t / maxT) * chartW;
+        const ty = margin.top + (1 - pt.speed / maxV) * chartH;
+        if (idx === 0) graphCtx.moveTo(tx, ty);
+        else graphCtx.lineTo(tx, ty);
+      });
+      graphCtx.strokeStyle = '#f59e0b';
+      graphCtx.lineWidth = 2;
+      graphCtx.stroke();
+
+      // 그래프 설명 범례(Legend) 추가
+      graphCtx.fillStyle = '#1e293b';
+      graphCtx.fillRect(margin.left + 20, margin.top + 10, 160, 42);
+      graphCtx.strokeStyle = '#334155';
+      graphCtx.strokeRect(margin.left + 20, margin.top + 10, 160, 42);
+
+      // 고도 범례 범례표식
+      graphCtx.fillStyle = '#06b6d4';
+      graphCtx.fillRect(margin.left + 30, margin.top + 20, 15, 6);
+      graphCtx.fillStyle = '#94a3b8';
+      graphCtx.font = '10px font-sans';
+      graphCtx.fillText('시간 대비 고도 (Altitude)', margin.left + 52, margin.top + 26);
+
+      // 속도 범례 표식
+      graphCtx.fillStyle = '#f59e0b';
+      graphCtx.fillRect(margin.left + 30, margin.top + 34, 15, 6);
+      graphCtx.fillStyle = '#94a3b8';
+      graphCtx.fillText('시간 대비 속도 (Speed)', margin.left + 52, margin.top + 40);
+    }
+  </script>
+</body>
+</html>
